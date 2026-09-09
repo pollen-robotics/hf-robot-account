@@ -1,0 +1,50 @@
+[package]
+name = "hf-robot-account"
+version = "0.1.0"
+edition = "2024"
+# 1.88 for let-chains, which `Account::login` uses to read the store and the `force` flag in one
+# condition. Edition 2024 alone would be 1.85; CI holds this number to the truth.
+rust-version = "1.88"
+license = "Apache-2.0"
+description = "Sign a browserless device in to a Hugging Face account, and keep it signed in"
+repository = "https://github.com/pollen-robotics/hf-robot-account"
+keywords = ["huggingface", "oauth", "device-flow", "robotics"]
+categories = ["authentication", "api-bindings"]
+readme = "README.md"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tracing = "0.1"
+# `chown(2)` and the group database, which is the only part of this crate that needs libc.
+# **Unix only, deliberately** — the credential is a file with an owner, a group and a mode, and
+# there is no useful meaning for that elsewhere. A robot that needs Windows is a real event to
+# respond to, not scaffolding to carry untested.
+libc = "0.2"
+
+[dependencies.tokio]
+version = "1"
+default-features = false
+features = ["rt", "time", "sync", "macros"]
+
+# `form` is the one non-obvious feature: OAuth token endpoints take
+# `application/x-www-form-urlencoded` bodies, not JSON, and RFC 8628 is no exception.
+# It pulls in `serde_urlencoded` and nothing else.
+[dependencies.reqwest]
+version = "0.13"
+default-features = false
+features = ["rustls", "json", "http2", "charset", "form"]
+
+[dev-dependencies]
+axum = "0.8"
+tempfile = "3"
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time"] }
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+uninlined_format_args = "allow"
