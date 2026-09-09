@@ -41,21 +41,20 @@
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use hf_robot_account::{Account, Config, FileStore};
+//! use hf_robot_account::{Account, Config, FileStore, maintain};
 //!
 //! # async fn example() -> Result<(), hf_robot_account::Error> {
 //! let store = FileStore::at("/etc/robot/hf-token").readable_by_group("robot");
 //! let account = Arc::new(Account::new(store, Config::from_env()));
 //!
 //! // Renew the token for as long as this process runs.
-//! tokio::spawn(maintain_for(Arc::clone(&account)));
+//! tokio::spawn(maintain(Arc::clone(&account)));
 //!
 //! // A client asks to sign in: answer with the code, and let it come back to `status`.
 //! let code = account.login(false).await?;
 //! println!("Open {} and type {}", code.verification_uri, code.user_code);
 //! # Ok(())
 //! # }
-//! # use hf_robot_account::maintain as maintain_for;
 //! ```
 //!
 //! # What is deliberately not here
