@@ -39,8 +39,15 @@ jobs:
       # Cheap next to the cost of yanking. A version on crates.io cannot be replaced.
       - run: cargo test
 
-      # Makes the whole job idempotent, which is what lets `workflow_dispatch` be a retry button
-      # rather than a way to get a red run for a publish that already worked.
+      # **Before the already-published check, deliberately.** Minting a token that goes unused
+      # costs nothing and it is the only way this path ever runs outside a real release: behind
+      # the check, a `workflow_dispatch` skips it, and a misconfigured trusted publisher would
+      # first be discovered while cutting a version. Now a dispatch is a genuine rehearsal.
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+
+      # Makes the publish itself idempotent, which is what lets `workflow_dispatch` be a retry
+      # button rather than a way to get a red run for something that already worked.
       - name: Is this version already published?
         id: check
         run: |
@@ -50,15 +57,11 @@ jobs:
             -H 'User-Agent: pollen-robotics-release (github actions)' \
             "https://crates.io/api/v1/crates/$name/$version")
           if [ "$code" = "200" ]; then
-            echo "$name $version is already on crates.io; nothing to do"
+            echo "$name $version is already on crates.io; nothing to publish"
             echo "published=true" >> "$GITHUB_OUTPUT"
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - uses: rust-lang/crates-io-auth-action@v1
-        if: steps.check.outputs.published == 'false'
-        id: auth
 
       - run: cargo publish
         if: steps.check.outputs.published == 'false'
