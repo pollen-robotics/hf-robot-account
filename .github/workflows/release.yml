@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  # So a publish that failed for a reason unrelated to the code — a crates.io outage, a
+  # misconfigured trusted publisher — can be retried without inventing a new version.
+  workflow_dispatch:
+
+# No `CARGO_REGISTRY_TOKEN` secret anywhere: `crates-io-auth-action` exchanges this workflow's
+# OIDC identity for a token that lives minutes, which is what `id-token: write` is for. It needs
+# a one-time Trusted Publishing entry on the crate's crates.io settings page naming this
+# repository and this filename.
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      # The tag is what a person typed; Cargo.toml is what actually gets published. A release cut
+      # as v0.2.0 against a manifest that still says 0.1.0 publishes neither what the tag claims
+      # nor anything anyone can find, so it is a failure rather than a surprise.
+      - name: The tag and Cargo.toml must agree
+        if: github.event_name == 'release'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::release tag $tag but Cargo.toml says $manifest"
+            exit 1
+          fi
+
+      # Cheap next to the cost of yanking. A version on crates.io cannot be replaced.
+      - run: cargo test
+
+      # Makes the whole job idempotent, which is what lets `workflow_dispatch` be a retry button
+      # rather than a way to get a red run for a publish that already worked.
+      - name: Is this version already published?
+        id: check
+        run: |
+          name=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].name')
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+          code=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H 'User-Agent: pollen-robotics-release (github actions)' \
+            "https://crates.io/api/v1/crates/$name/$version")
+          if [ "$code" = "200" ]; then
+            echo "$name $version is already on crates.io; nothing to do"
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: rust-lang/crates-io-auth-action@v1
+        if: steps.check.outputs.published == 'false'
+        id: auth
+
+      - run: cargo publish
+        if: steps.check.outputs.published == 'false'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
