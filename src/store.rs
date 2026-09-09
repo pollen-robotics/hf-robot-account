@@ -306,6 +306,8 @@ mod ownership {
         if entry.is_null() {
             return None;
         }
+        // SAFETY: non-null, and `getgrnam` guarantees a fully initialised `group` behind it.
+        // The gid is copied out before anything else can call into the group database.
         Some(unsafe { (*entry).gr_gid })
     }
 

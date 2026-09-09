@@ -71,8 +71,6 @@
 //! keyring is a reason to add the trait, and adding it then is a smaller change than carrying the
 //! indirection until somebody does.
 
-#![forbid(unsafe_op_in_unsafe_fn)]
-
 mod account;
 mod oauth;
 mod store;
@@ -251,7 +249,6 @@ pub struct Status {
 /// "your request was wrong and here is the parameter that fixes it", and
 /// [`LoginInFlight`](Error::LoginInFlight) to something meaning "busy, try again".
 #[derive(Debug, thiserror::Error)]
-#[non_exhaustive]
 pub enum Error {
     /// Hugging Face could not be reached, or did not answer usefully.
     #[error("{0}")]
