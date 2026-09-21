@@ -1,27 +1,47 @@
 # hf-robot-account
 
+[![crates.io](https://img.shields.io/crates/v/hf-robot-account.svg)](https://crates.io/crates/hf-robot-account)
+[![docs.rs](https://docs.rs/hf-robot-account/badge.svg)](https://docs.rs/hf-robot-account)
+[![CI](https://github.com/pollen-robotics/hf-robot-account/actions/workflows/ci.yml/badge.svg)](https://github.com/pollen-robotics/hf-robot-account/actions/workflows/ci.yml)
+
 Sign a browserless device in to a Hugging Face account, and keep it signed in.
+
+Unix only, and Rust 1.88 or newer — `rust-version` in the manifest is the promise, and CI holds
+it to a build on exactly that toolchain.
 
 ```toml
 [dependencies]
 hf-robot-account = "0.1"
 ```
 
-```rust
+```rust,no_run
 use std::sync::Arc;
 use hf_robot_account::{Account, Config, FileStore, maintain};
 
-let store = FileStore::at("/etc/robot/hf-token").readable_by_group("robot");
-let account = Arc::new(Account::new(store, Config::from_env()));
+#[tokio::main]
+async fn main() -> Result<(), hf_robot_account::Error> {
+    let store = FileStore::at("/etc/robot/hf-token").readable_by_group("robot");
+    let account = Arc::new(Account::new(store, Config::from_env()));
 
-tokio::spawn(maintain(Arc::clone(&account)));
+    // Renew the token for as long as this process runs.
+    tokio::spawn(maintain(Arc::clone(&account)));
 
-let code = account.login(false).await?;
-println!("Open {} and type {}", code.verification_uri, code.user_code);
+    let code = account.login(false).await?;
+    println!("Open {} and type {}", code.verification_uri, code.user_code);
+    Ok(())
+}
 ```
 
 `login` answers with a code and returns. The polling runs in a task the crate owns, so the client
 that asked is free to disconnect — it comes back to `account.status()` to find out what happened.
+
+## The other half
+
+This crate owns one half of a sentence — *this robot belongs to that Hugging Face account*. The half
+that makes it mean anything runs in a browser: a page that signs a **person** in to the same
+account, finds the robot that answers to it, and opens a session.
+[`docs/client-side.md`](docs/client-side.md) describes how that half works, and what a
+device-agnostic SDK built from it would keep, parameterise and drop.
 
 ## Why the device grant
 
@@ -59,7 +79,7 @@ A second, unprivileged process reads the token with `read_access_token(path)` an
 else. One key at one level is the whole contract between the writer and the reader, and a test
 here pins it.
 
-```
+```text
 /etc/robot/hf-token   root:robot 0640
 {"access_token": "...", "refresh_token": "...", "expires_at": 1788000000, "username": "..."}
 ```

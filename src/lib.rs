@@ -71,6 +71,16 @@
 //! keyring is a reason to add the trait, and adding it then is a smaller change than carrying the
 //! indirection until somebody does.
 
+/// The README is compiled, so its example cannot rot.
+///
+/// It is the crate's front door on GitHub and on crates.io, and until now nothing checked that
+/// the code in it still existed: a renamed method would have been fixed in the doctest above and
+/// left wrong in the one snippet most readers see first. Under `cfg(doctest)` this costs nothing
+/// at build time — `cargo test` is the only thing that ever compiles it.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct Readme;
+
 mod account;
 mod oauth;
 mod store;
