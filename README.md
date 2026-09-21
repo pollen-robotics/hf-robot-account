@@ -35,6 +35,14 @@ async fn main() -> Result<(), hf_robot_account::Error> {
 `login` answers with a code and returns. The polling runs in a task the crate owns, so the client
 that asked is free to disconnect — it comes back to `account.status()` to find out what happened.
 
+## The other half
+
+This crate owns one half of a sentence — *this robot belongs to that Hugging Face account*. The half
+that makes it mean anything runs in a browser: a page that signs a **person** in to the same
+account, finds the robot that answers to it, and opens a session.
+[`docs/client-side.md`](docs/client-side.md) describes how that half works, and what a
+device-agnostic SDK built from it would keep, parameterise and drop.
+
 ## Why the device grant
 
 A robot has no browser. Authorization code + PKCE points a redirect URI at an HTTP server on the
